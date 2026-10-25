@@ -1,98 +1,121 @@
 <p align="center">
-  <img src="assets/hero.svg" alt="Mutasi Mate — bank statements and screenshots into a spending report" width="100%">
+  <img src="assets/hero.svg" alt="Mutasi Mate — rekening koran dan screenshot jadi laporan pengeluaran" width="100%">
 </p>
-
-<h3 align="center">Turn bank statements, receipt screenshots, and Shopee orders into a real spending report.</h3>
 
 <p align="center">
-  <em>Offline. No uploads. No API keys. No macros.</em>
+  <a href="https://nbgate.com/signup?ref=REF-DFGFKG">
+    <img src="assets/nbgate.png" alt="NBGate" width="208">
+  </a>
 </p>
-
----
-
-Most Indonesian banks give you a "Transaksi Berhasil" screenshot per transaction
-and nothing else — no PDF e-statement, no CSV export, no API. So your spending
-history lives in 97 JPEGs and a group chat.
-
-**Mutasi Mate** turns that mess into a spreadsheet and a dashboard you can
-actually read. It also solves the question every e-wallet user has: *the bank
-says "Top Up ShopeePay Rp 4.310.000" — spent on what?*
-
-```
-97 screenshots  →  81 transactions  →  Rp 9.6M tracked  →  0 wrong amounts
-```
-
----
-
-## How it works
 
 <p align="center">
-  <img src="assets/pipeline.svg" alt="Pipeline: extract, categorise, report, reconcile" width="100%">
+  <sub><b>POWERED BY NBGATE</b></sub><br>
+  <sub>Butuh token AI? Dapatkan sekarang di NBGate &mdash; harga terjangkau dan masuk akal.<br>
+  Dengan mengklik link di atas, kamu ikut mendukung pengembangan tool ini.</sub>
 </p>
 
-| Step | Command | Output |
-|------|---------|--------|
-| **1. Extract** | `1_ekstrak.py` | `transaksi.csv` |
-| **2. Categorise** | `2_analisa.py` | `laporan.html` + `tracker.xlsx` |
-| **3. Reconcile** *(optional)* | `3_rekonsiliasi.py` | `rekonsiliasi.csv` |
-
-**Extract** reads a PDF e-statement, a folder of screenshots, or a single
-receipt. PDFs with a text layer are parsed directly; scanned pages are rendered
-at 300 DPI and OCR'd with the OCR engine built into Windows. No model download,
-no cloud call.
-
-**Categorise** matches merchant text against rules you own and can edit —
-`config/kategori.txt`, one line per rule. Anything unmatched lands in
-`Lain-lain` and gets listed for you at the end, so you know exactly what to add.
-
-**Reconcile** is the interesting one. It walks top-ups and purchases in
-timestamp order and applies FIFO: each purchase consumes the oldest top-up
-balance. When a top-up happens 1–10 minutes before the order — which is what
-people actually do — the attribution is essentially exact, not a guess.
+<p align="center">
+  <sub>Tool ini sendiri tetap berjalan offline &mdash; tidak butuh token AI untuk dipakai.</sub>
+</p>
 
 ---
 
-## Quick start
+<h3 align="center">Rekening koran, screenshot struk, dan pesanan Shopee jadi laporan pengeluaran.</h3>
 
-**Requirements:** Python 3.9+ and Windows 10/11 (the OCR engine ships with Windows).
+<p align="center">
+  <em>Offline. Tanpa upload. Tanpa API key. Tanpa macro.</em>
+</p>
+
+<p align="center">
+  <a href="ENGLISH.md">🇬🇧 Read this in English</a>
+</p>
+
+---
+
+Kebanyakan bank di Indonesia cuma kasih satu screenshot "Transaksi Berhasil" per
+transaksi — tidak ada e-statement PDF, tidak ada export CSV, tidak ada API. Jadi
+riwayat pengeluaran kamu hidup di 97 file JPG dan satu grup chat.
+
+**Mutasi Mate** mengubah kekacauan itu jadi spreadsheet dan dashboard yang bisa
+kamu baca. Dia juga menjawab pertanyaan yang semua pengguna e-wallet punya:
+*rekening bilang "Top Up ShopeePay Rp 4.310.000" — habis buat apa?*
+
+```
+97 screenshot  →  81 transaksi  →  Rp 9,6 juta terlacak  →  0 angka salah
+```
+
+---
+
+## Cara kerjanya
+
+<p align="center">
+  <img src="assets/pipeline.svg" alt="Alur: ekstrak, kategori, laporan, rekonsiliasi" width="100%">
+</p>
+
+| Langkah | Perintah | Hasil |
+|---------|----------|-------|
+| **1. Ekstrak** | `1_ekstrak.py` | `transaksi.csv` |
+| **2. Kategori** | `2_analisa.py` | `laporan.html` + `tracker.xlsx` |
+| **3. Rekonsiliasi** *(opsional)* | `3_rekonsiliasi.py` | `rekonsiliasi.csv` |
+
+**Ekstrak** membaca PDF e-statement, folder screenshot, atau satu struk. PDF yang
+punya lapisan teks dibaca langsung; halaman hasil scan di-render 300 DPI lalu
+di-OCR pakai mesin OCR bawaan Windows. Tanpa download model, tanpa panggilan ke
+cloud.
+
+**Kategori** mencocokkan teks merchant dengan aturan milikmu sendiri di
+`config/kategori.txt` — satu baris satu aturan. Yang tidak cocok masuk
+`Lain-lain` dan didaftarkan di akhir, jadi kamu tahu persis apa yang perlu
+ditambah.
+
+**Rekonsiliasi** bagian yang menarik. Dia menelusuri top up dan pembelian urut
+waktu lalu menerapkan FIFO: tiap pembelian memakai saldo top up paling tua.
+Kalau top up terjadi 1–10 menit sebelum order — yang memang kebiasaan orang —
+atribusinya jadi hampir pasti, bukan tebakan.
+
+---
+
+## Mulai cepat
+
+**Syarat:** Python 3.9+ dan Windows 10/11 (mesin OCR-nya sudah ada di Windows).
 
 ```bash
 pip install pymupdf pillow winocr openpyxl
 ```
 
 ```bash
-# 1. extract
+# 1. ekstrak
 py -3 tools/1_ekstrak.py "statement.pdf" --sumber BCA
-py -3 tools/1_ekstrak.py "folder_screenshots/" --sumber DG
+py -3 tools/1_ekstrak.py "folder_screenshot/" --sumber DG
 
-# 2. report
+# 2. laporan
 py -3 tools/2_analisa.py transaksi.csv
 
-# 3. optional: what did the e-wallet top-ups buy?
+# 3. opsional: top up e-wallet habis buat apa?
 py -3 tools/3_rekonsiliasi.py transaksi.csv order_shopee.csv
 ```
 
-Or just drag a file onto `1 Ekstrak.bat` and `2 Laporan.bat`.
+Atau cukup tarik file ke `1 Ekstrak.bat` dan `2 Laporan.bat`.
 
-### Unknown bank layout?
+### Layout bank kamu tidak dikenali?
 
-Don't fight the flags. Dump the text and let an LLM structure it:
+Jangan berkelahi dengan flag. Keluarkan teksnya, biar LLM yang menyusun:
 
 ```bash
 py -3 tools/1_ekstrak.py "statement.pdf" --dump
 ```
 
-That writes `teks_mentah.txt`. Paste it into any LLM together with
-`tools/ai_prompt.txt` — the prompt already handles the classic trap
-(`05/10/2026` is 5 October, not 10 May) and tells the model to leave a field
-empty rather than guess. Save the reply as `transaksi.csv` and continue at step 2.
+Muncul `teks_mentah.txt`. Tempel ke LLM mana saja bersama `tools/ai_prompt.txt` —
+prompt-nya sudah menangani jebakan klasik (`05/10/2026` itu 5 Oktober, bukan
+10 Mei) dan menyuruh model mengosongkan kolom daripada menebak. Simpan
+jawabannya sebagai `transaksi.csv`, lanjut ke langkah 2.
 
 ---
 
-## The data contract
+## Kontrak data
 
-Every tool speaks one format: 7 columns, semicolon-separated, UTF-8 BOM
-(so Excel opens it without mojibake).
+Semua tool bicara satu format: 7 kolom, pemisah titik koma, UTF-8 BOM
+(supaya Excel membukanya tanpa karakter aneh).
 
 ```csv
 tanggal;waktu;jenis;keterangan;nominal;ref;sumber
@@ -100,147 +123,166 @@ tanggal;waktu;jenis;keterangan;nominal;ref;sumber
 2026-05-24;12:37;QRIS;ARKYS SMASH CHICKEN;19000;MB1779597443DT5;DG
 ```
 
-| Column | Meaning |
-|--------|---------|
+| Kolom | Arti |
+|-------|------|
 | `tanggal` | `YYYY-MM-DD` |
-| `waktu` | `HH:MM`, optional |
-| `jenis` | transaction type; `MASUK` for incoming money |
-| `keterangan` | merchant / recipient / description |
-| `nominal` | digits only, positive, no separators |
-| `ref` | reference number, optional |
-| `sumber` | bank or app name |
+| `waktu` | `HH:MM`, boleh kosong |
+| `jenis` | jenis transaksi; `MASUK` untuk uang masuk |
+| `keterangan` | merchant / penerima / deskripsi |
+| `nominal` | angka saja, positif, tanpa pemisah |
+| `ref` | nomor referensi, boleh kosong |
+| `sumber` | nama bank atau aplikasi |
 
-Already have a CSV from your bank? Map its columns instead of reformatting by hand.
-
----
-
-## What you get
-
-`laporan.html` — a single self-contained file (inline CSS, JS, data). Open it
-offline, mail it, put it on a phone. No server, no CDN, no fonts to fetch.
-
-- total out vs. real spending vs. money movement
-- spending by category, by month, by merchant
-- the 10 largest transactions
-- full searchable table
-
-`tracker.xlsx` — `Input` sheet (filterable, frozen header) and `Ringkasan`
-sheet with `SUMIF` totals. Plain formulas, no macros, no security warnings.
+Sudah punya CSV dari bank? Petakan kolomnya saja, tidak perlu format ulang manual.
 
 ---
 
-## The Shopee part (read the limits)
+## Yang kamu dapat
 
-Two Tampermonkey userscripts in `shopee/`:
+`laporan.html` — satu file mandiri (CSS, JS, dan data menyatu di dalamnya). Bisa
+dibuka offline, dikirim lewat email, atau ditaruh di HP. Tanpa server, tanpa CDN,
+tanpa font yang perlu diunduh.
 
-| Script | Method | Use when |
-|--------|--------|----------|
-| `2_shopee_daftar_v3.txt` | hooks the page's own XHR, reuses JSON the page already fetched | you need many orders, fast |
-| `1_shopee_popup_v2.2.txt` | loads each order in a hidden iframe | you need per-order detail |
+- total keluar vs belanja nyata vs perpindahan uang
+- pengeluaran per kategori, per bulan, per merchant
+- 10 transaksi terbesar
+- tabel lengkap dengan pencarian
 
-**This is semi-automatic, and it can break.** Be clear-eyed about it:
-
-1. **You drive.** Log in, open *Pesanan Saya*, pick the **Selesai** tab.
-2. **Scroll to the bottom first.** Shopee builds the pagination bar lazily —
-   if you haven't scrolled, there is no "Berikutnya" button and the script
-   stops after page one.
-3. **It breaks when Shopee changes layout.** No warning — you just get
-   `0 pesanan`. The scripts read page structure, not an official API.
-4. **Export immediately.** v3 caches results in `localStorage`, so a refresh
-   usually survives. v2.2 keeps everything in memory — refresh and it's gone.
-5. **Totals exclude shipping.** `Total Pesanan` is item price × quantity.
-
-Full walkthrough and failure triage: [`shopee/CARA PAKAI.txt`](shopee/CARA_PAKAI.txt).
+`tracker.xlsx` — sheet `Input` (bisa difilter, header dibekukan) dan sheet
+`Ringkasan` dengan total `SUMIF`. Formula biasa, tanpa macro, tanpa peringatan
+keamanan.
 
 ---
 
-## Security
+## Bagian Shopee (baca batasannya)
 
-This handles your financial records, so it was audited before publication:
+Dua userscript Tampermonkey di `shopee/`:
 
-- **No network calls.** Zero `urllib`, `requests`, `socket` in the Python code.
-- **No secrets.** No API keys, tokens, or credentials anywhere in the tree.
-- **No telemetry.** OCR runs on the Windows engine, locally.
-- **No `eval`, no `subprocess`, no file deletion.**
-- The userscripts make no external requests; the XHR hook only reads responses
-  the page already loaded.
+| Script | Cara kerja | Pakai kalau |
+|--------|-----------|-------------|
+| `2_shopee_daftar_v3.txt` | menempel hook di XHR halaman, memakai ulang JSON yang halaman itu sudah ambil | butuh banyak order, cepat |
+| `1_shopee_popup_v2.2.txt` | memuat tiap order di iframe tersembunyi | butuh detail per order |
 
-The audit found and fixed four issues, including a userscript that carried
-`@updateURL`/`@downloadURL` pointing at a third-party Greasyfork entry — meaning
-Tampermonkey could silently replace the patched script. Both lines are gone.
+**Ini setengah otomatis, dan bisa rusak.** Baca dengan sadar:
 
-Full report with file:line evidence: [`AUDIT.md`](AUDIT.md).
+1. **Kamu yang mengemudi.** Login, buka *Pesanan Saya*, pilih tab **Selesai**.
+2. **Scroll ke paling bawah dulu.** Shopee membuat bar pagination secara malas —
+   kalau belum scroll, tombol "Berikutnya" belum ada dan script berhenti di
+   halaman satu.
+3. **Rusak kalau Shopee ubah layout.** Tanpa peringatan — tiba-tiba hasilnya
+   `0 pesanan`. Script membaca struktur halaman, bukan API resmi.
+4. **Export segera.** v3 menyimpan hasil di `localStorage`, jadi refresh biasanya
+   selamat. v2.2 menyimpan di memori — refresh langsung hilang.
+5. **Total belum termasuk ongkir.** `Total Pesanan` = harga barang × jumlah.
+
+Panduan lengkap dan cara menangani kalau rusak:
+[`shopee/CARA PAKAI.txt`](shopee/CARA_PAKAI.txt).
+
+> ### ⚠️ Kalau kamu fork untuk Shopee region lain
+>
+> Script ini disetel untuk **shopee.co.id**. Untuk region lain (SG, MY, PH, TH,
+> VN, TW, BR, MX) minimal ini yang harus disesuaikan:
+>
+> | Bagian | Yang perlu diubah |
+> |--------|-------------------|
+> | `@match` di metadata | `https://shopee.co.id/*` → domain region kamu |
+> | Format uang | `Rp` → mata uang lokal; pemisah ribuan/desimal ikut beda |
+> | `microFix()` | sebagian region kirim harga dalam micro-units (×100000) — cek hasilnya |
+> | `scrapeCards()` | selector kartu pesanan; nama class tiap region bisa beda |
+> | `findNext()` | teks tombol halaman ("Berikutnya" / "Next" / "ถัดไป") |
+> | Hook XHR | filter `/api` `/order` `/purchase` — endpoint region bisa berbeda |
+> | Tanggal | `dd/mm/yyyy` vs `mm/dd/yyyy` |
+>
+> Uji dulu dengan **satu halaman** sebelum klik "Auto semua halaman". Kalau
+> hasilnya 0, berarti selector region kamu memang beda — itu yang perlu
+> diperbaiki lebih dulu.
 
 ---
 
-## Honest limitations
+## Keamanan
 
-- **The parser is heuristic, not an LLM.** It handles "date at line start" and
-  "label: value" receipts well. Unusual table layouts need the AI path.
-- **Reference test:** 97 real DG receipts → **81 of 83 transactions (97.6%)**,
-  **zero wrong amounts**, 2 files flagged unreadable. It refuses to guess: a
-  garbled amount is dropped and the filename is reported, not invented.
-- **Windows-only OCR.** PDF text extraction works anywhere PyMuPDF runs, but
-  the scanned-image path needs the Windows OCR engine.
-- **Rupiah-centric.** Amount parsing assumes Indonesian formatting
-  (`1.234.567,89`); US-style input needs `--gaya mdy` for dates.
+Tool ini menyimpan catatan keuanganmu, jadi dia diaudit sebelum dirilis:
 
-A missing row is recoverable. A wrong amount is not. That trade-off is deliberate.
+- **Tanpa panggilan jaringan.** Nol `urllib`, `requests`, `socket` di kode Python.
+- **Tanpa rahasia.** Tidak ada API key, token, atau kredensial di seluruh repo.
+- **Tanpa telemetri.** OCR jalan di mesin Windows, lokal.
+- **Tanpa `eval`, tanpa `subprocess`, tanpa penghapusan file.**
+- Userscript tidak melakukan request ke luar; hook XHR hanya membaca respons
+  yang halaman itu sudah muat sendiri.
+
+Audit menemukan dan memperbaiki empat masalah, termasuk userscript yang membawa
+`@updateURL`/`@downloadURL` menunjuk ke entri Greasyfork pihak ketiga — artinya
+Tampermonkey bisa mengganti script yang sudah ditambal tanpa kamu sadari. Kedua
+baris itu sudah dihapus.
+
+Laporan lengkap dengan bukti baris kode: [`AUDIT.md`](AUDIT.md).
 
 ---
 
-## Repository layout
+## Batasan yang jujur
+
+- **Parser-nya heuristik, bukan LLM.** Dia bagus untuk pola "tanggal di awal
+  baris" dan struk "label: nilai". Layout tabel yang tidak umum perlu jalur AI.
+- **Hasil uji acuan:** 97 struk DG asli → **81 dari 83 transaksi (97,6%)**,
+  **nol angka salah**, 2 file ditandai tidak terbaca. Dia menolak menebak:
+  nominal yang rusak dibuang dan nama filenya dilaporkan, bukan dikarang.
+- **OCR khusus Windows.** Ekstraksi teks PDF jalan di mana saja PyMuPDF jalan,
+  tapi jalur gambar hasil scan butuh mesin OCR Windows.
+- **Berpusat di Rupiah.** Pembacaan angka mengasumsikan format Indonesia
+  (`1.234.567,89`); input gaya Amerika perlu `--gaya mdy` untuk tanggal.
+
+Satu baris hilang masih bisa dikejar. Satu angka salah tidak akan ketahuan.
+Perdagangan itu disengaja.
+
+---
+
+## Struktur repo
 
 ```
-tools/1_ekstrak.py        PDF / image → transaksi.csv
+tools/1_ekstrak.py        PDF / gambar → transaksi.csv
 tools/2_analisa.py        transaksi.csv → laporan.html + tracker.xlsx
-tools/3_rekonsiliasi.py   FIFO e-wallet attribution
-tools/common.py           shared parsing (money, dates, CSV)
-tools/ai_prompt.txt       prompt for unknown layouts
-config/kategori.txt       categorisation rules — edit this
-shopee/                   userscripts + install & usage guides
-contoh/                   sample PDF, CSV, and generated report
-assets/                   SVG illustrations
-AGENTS.md                 instructions when an AI agent runs the toolkit
-AUDIT.md                  security review
-BACA DULU.txt             manual (Indonesian)
+tools/3_rekonsiliasi.py   atribusi e-wallet metode FIFO
+tools/common.py           parsing bersama (uang, tanggal, CSV)
+tools/ai_prompt.txt       prompt untuk layout yang tidak dikenal
+config/kategori.txt       aturan kategori — edit di sini
+shopee/                   userscript + panduan pasang & pakai
+contoh/                   contoh PDF, CSV, dan laporan hasil generate
+assets/                   ilustrasi SVG + logo sponsor
+AGENTS.md                 instruksi kalau AI yang menjalankan
+AUDIT.md                  hasil audit keamanan
+BACA DULU.txt             panduan manual
+ENGLISH.md                versi bahasa Inggris dari halaman ini
 ```
 
 ---
 
-<details>
-<summary><b>🇮🇩 Bahasa Indonesia — ringkasan</b></summary>
+## Disclaimer
 
-**Mutasi Mate** mengubah rekening koran PDF, screenshot struk, dan daftar
-pesanan Shopee jadi laporan pengeluaran.
+Tool ini dirancang, ditulis, dan diaudit dengan **bantuan AI** — mulai dari
+riset format rekening koran tiap bank, penulisan parser, sampai penelusuran bug
+OCR yang bikin nominal kebaca 10× lipat. Semua hasilnya diuji pada data nyata
+sebelum dirilis.
 
-```bash
-py -3 tools/1_ekstrak.py "statement.pdf" --sumber DG   # → transaksi.csv
-py -3 tools/2_analisa.py transaksi.csv                 # → laporan.html + tracker.xlsx
-```
+Tapi tetap: **periksa sendiri sebelum dipakai untuk keputusan keuangan.**
 
-Semua jalan offline. Tidak ada data yang diupload, tidak ada API key.
+- OCR bisa salah baca karakter (`0` jadi `O`, `1` jadi `l`)
+- Parser bisa salah menebak kolom debit/kredit
+- Kategori bisa keliru kalau aturanmu belum lengkap
 
-- Kalau layout bank tidak dikenali: `--dump`, lalu tempel teksnya ke AI pakai
-  `tools/ai_prompt.txt`.
-- Kategori diatur di `config/kategori.txt` — format `kata kunci|Kategori|jenis`.
-- Hasil uji: 97 struk → 81 dari 83 transaksi, **nol angka salah**.
-- Script Shopee setengah manual: harus scroll ke bawah dulu, dan harus
-  langsung export setelah scan. Bisa rusak kalau Shopee ubah layout.
+**CSV hasil ekstraksi adalah sumber kebenaran, bukan laporan HTML-nya.** Buka
+`transaksi.csv`, bandingkan dengan beberapa struk, baru percaya angkanya.
 
-Panduan lengkap: `BACA DULU.txt` dan `shopee/CARA PAKAI.txt`.
-
-</details>
+Disediakan apa adanya di bawah lisensi MIT, tanpa jaminan apa pun.
 
 ---
 
-## Credits
+## Kredit
 
-The Shopee userscripts derive from an MIT-licensed script by **Ryu-Sena**
-(IndoTech Community), originally published on Greasyfork. Substantially
-modified here: selector repair, timing fixes, iframe fallback, and the
-localStorage cache with version stamping. Details in [NOTICE](NOTICE).
+Userscript Shopee diturunkan dari script berlisensi MIT karya **Ryu-Sena**
+(IndoTech Community), awalnya terbit di Greasyfork. Banyak diubah di sini:
+perbaikan selector, perbaikan timing, fallback iframe, dan cache localStorage
+dengan penanda versi. Rinciannya di [NOTICE](NOTICE).
 
-## License
+## Lisensi
 
-MIT — see [LICENSE](LICENSE).
+MIT — lihat [LICENSE](LICENSE).
