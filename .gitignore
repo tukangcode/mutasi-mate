@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# hasil generate di root (jangan di-commit)
+/transaksi*.csv
+/laporan.html
+/tracker.xlsx
+/rekonsiliasi.csv
+/teks_mentah.txt
+
+# OS
+Thumbs.db
+desktop.ini

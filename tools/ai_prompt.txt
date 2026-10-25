@@ -1,0 +1,96 @@
+﻿============================================================
+PROMPT UNTUK AI
+============================================================
+Pakai ini kalau layout bank kamu tidak dikenali tool, atau kalau
+kamu cuma punya screenshot dan malas OCR.
+
+LANGKAH:
+1. Jalankan:  python tools\1_ekstrak.py file_atau_folder --dump
+   -> menghasilkan teks_mentah.txt
+2. Buka file itu, Ctrl+A, Ctrl+C
+3. Buka AI apa saja (ChatGPT / Claude / Gemini), tempel PROMPT di
+   bawah, lalu tempel teksnya di belakangnya.
+4. Simpan jawabannya sebagai transaksi.csv
+5. Jalankan:  python tools\2_analisa.py transaksi.csv
+
+Kalau kamu kirim GAMBAR (bukan teks) ke AI yang bisa lihat gambar,
+pakai PROMPT yang sama - hasilnya sama saja.
+
+
+------------------------------------------------------------
+PROMPT (copy mulai dari baris di bawah ini)
+------------------------------------------------------------
+
+Kamu adalah alat konversi data. Tugasmu HANYA mengubah teks/gambar
+mutasi rekening atau bukti transaksi menjadi CSV. Jangan menjelaskan,
+jangan memberi komentar, jangan memakai blok kode markdown. Keluarkan
+CSV mentah saja.
+
+FORMAT WAJIB - tepat 7 kolom, dipisah titik koma (;):
+
+tanggal;waktu;jenis;keterangan;nominal;ref;sumber
+
+Aturan tiap kolom:
+
+1. tanggal  = YYYY-MM-DD. Kalau di sumber tertulis 05/10/2026, itu
+   artinya 5 Oktober 2026 (format Indonesia: hari/bulan/tahun),
+   JANGAN dibalik jadi 10 Mei. Kalau tahun tidak ada, pakai tahun
+   dari konteks dokumen.
+2. waktu    = HH:MM (24 jam). Kosongkan kalau tidak ada.
+3. jenis    = jenis transaksi apa adanya dari sumber: QRIS, Transfer,
+   Top Up E-Wallet, Tarik Tunai, BIFAST, Pembelian Pulsa, dll.
+   Kalau ini uang MASUK (gaji, transfer masuk, refund), tulis MASUK.
+4. keterangan = nama merchant / penerima / deskripsi. Ambil yang
+   paling informatif. Jangan masukkan nomor rekening atau nomor HP.
+5. nominal  = angka saja, tanpa Rp, tanpa titik, tanpa koma.
+   1.234.567 menjadi 1234567. Selalu positif.
+6. ref      = nomor referensi / nomor transaksi. Kosongkan kalau tidak ada.
+7. sumber   = nama bank atau aplikasi, misal DG, BCA, Jago, Shopee.
+
+Aturan tambahan:
+
+- Satu baris = satu transaksi. Jangan gabungkan.
+- Kalau nominal di sumber ada dua (Nominal dan Biaya Admin), pakai
+  TOTAL yang keluar dari rekening (nominal + biaya admin).
+- Kalau ada kolom DEBIT dan KREDIT, ambil DEBIT saja (uang keluar).
+  Baris yang KREDIT saja ditandai jenis = MASUK.
+- Abaikan baris judul, saldo awal, saldo akhir, total, nomor halaman.
+- Jangan mengarang transaksi. Kalau ragu, lewati.
+- Kalau angka tidak terbaca jelas, tulis nominal 0 supaya saya bisa
+  cek manual - jangan menebak.
+
+Contoh keluaran yang benar (tanpa penjelasan apa pun):
+
+tanggal;waktu;jenis;keterangan;nominal;ref;sumber
+2026-05-23;11:01;Top Up E-Wallet;Top Up ShopeePay;202500;SHP83339705N;DG
+2026-05-24;12:37;QRIS;ARKYS SMASH CHICKEN;19000;MB1779597443DT5;DG
+2026-05-26;06:24;BIFAST;Agus Pratama - beli pdf;52500;28176738;DG
+
+Sekarang konversi data berikut:
+
+
+------------------------------------------------------------
+VERSI INGGRIS (kalau AI-nya lebih paham Inggris)
+------------------------------------------------------------
+
+Convert the bank statement / receipt text below into CSV only.
+No explanation, no markdown code fence. Exactly 7 columns,
+semicolon separated:
+
+tanggal;waktu;jenis;keterangan;nominal;ref;sumber
+
+- tanggal: YYYY-MM-DD. Ambiguous dates like 05/10/2026 are DAY/MONTH/YEAR
+  (Indonesian format) = 2026-10-05, not May 10.
+- waktu: HH:MM 24h, empty if unknown.
+- jenis: transaction type as written (QRIS, Transfer, Top Up E-Wallet...).
+  Use MASUK for incoming money.
+- keterangan: merchant/recipient/description. No account numbers, no phone numbers.
+- nominal: digits only, no separators, no currency symbol, positive.
+  If both "Nominal" and "Admin fee" exist, output the TOTAL debited.
+- ref: reference number, empty if none.
+- sumber: bank/app name.
+
+Skip headers, opening/closing balance, totals, page numbers.
+Never invent a transaction. If unreadable, put 0.
+
+Output CSV only. Data follows:

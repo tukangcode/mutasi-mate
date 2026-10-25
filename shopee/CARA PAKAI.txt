@@ -1,0 +1,204 @@
+============================================================
+CARA PAKAI SCRIPT SHOPEE + BATASANNYA
+============================================================
+
+Baca ini sebelum pakai. Script ini BUKAN tombol ajaib - dia
+setengah manual, dan bisa berhenti bekerja kapan saja kalau
+Shopee mengubah halamannya.
+
+
+------------------------------------------------------------
+1. CARA KERJANYA (biar kamu paham kenapa ada batasannya)
+------------------------------------------------------------
+
+Ada dua script, cara kerjanya beda:
+
+A. 2_shopee_daftar_v3.txt  -- baca halaman daftar
+   Script menempel hook di XMLHttpRequest halaman. Setiap kali
+   Shopee mengambil data pesanan dari servernya sendiri, script
+   ikut menyalin JSON itu, lalu menyusun tabel dari situ.
+   Kalau JSON tidak ketemu, dia membaca kartu pesanan di layar.
+   -> Tidak membuka tab baru. Tidak menambah request.
+
+B. 1_shopee_popup_v2.2.txt  -- buka satu-satu
+   Script memuat tiap halaman pesanan di iframe tersembunyi,
+   membaca isinya, lalu lanjut ke link berikutnya.
+   -> Lebih lambat, tapi dapat detail per pesanan
+      (nama toko, nomor pesanan, total pesanan).
+
+Dua-duanya hanya MEMBACA halaman yang kamu buka sendiri.
+Tidak ada login otomatis, tidak ada data yang dikirim keluar.
+
+
+------------------------------------------------------------
+2. LANGKAH HARVEST (semi otomatis - kamu yang jalanin)
+------------------------------------------------------------
+
+Script tidak bisa navigasi sendiri. Kamu yang harus menyiapkan
+halamannya dulu:
+
+  [1] Buka shopee.co.id, pastikan sudah login.
+
+  [2] Klik profil -> "Pesanan Saya".
+
+  [3] Pilih tab "Selesai".
+      Ini penting: pesanan yang sudah selesai punya total final.
+      Pesanan yang masih "Dikirim" atau "Diproses" totalnya bisa
+      berubah, jadi jangan dicampur.
+
+  [4] SCROLL KE PALING BAWAH halaman.
+      Ini langkah yang paling sering dilupakan. Nomor halaman
+      (1 2 3 ... >) baru dibuat Shopee setelah kamu scroll.
+      Kalau belum di-scroll, script tidak menemukan tombol
+      "Berikutnya" dan berhenti di halaman 1.
+
+  [5] Klik "Scan halaman ini".
+      Cek angka di panel - harusnya muncul jumlah pesanan.
+      Kalau 0, berarti halamannya belum selesai loading atau
+      layout-nya sudah berubah.
+
+  [6] Klik "Auto semua halaman".
+      Script akan klik "Berikutnya" sendiri, maksimal 40 halaman,
+      dengan jeda 1,8-3,2 detik per halaman (sengaja lambat biar
+      tidak dianggap bot).
+
+      Selama proses ini:
+      - JANGAN scroll, jangan klik apa pun, jangan pindah tab
+      - Biarkan sampai status bilang berhenti sendiri
+
+  [7] LANGSUNG klik "Export CSV".  <== JANGAN DITUNDA
+      Lihat bagian 3 di bawah kenapa ini penting.
+
+  [8] Simpan file CSV-nya. Selesai.
+
+
+------------------------------------------------------------
+3. SOAL DATA HILANG - INI YANG PERLU KAMU TAHU
+------------------------------------------------------------
+
+v3 (daftar):
+  Hasil scan disimpan di localStorage browser (key sft3_orders_v1).
+  Artinya REFRESH BIASA TIDAK menghilangkan data - kamu bisa
+  lanjut scan lagi dan hasilnya ditambahkan.
+
+  TAPI tetap bisa hilang kalau:
+  - kamu hapus data browser / pakai mode incognito
+  - localStorage penuh (banyak sekali pesanan)
+  - versi script dinaikkan (cache lama sengaja diabaikan)
+  - buka di browser atau perangkat lain (cache-nya terpisah)
+
+v2.2 (popup):
+  Hasilnya hanya di memori. Refresh atau tutup tab = HILANG
+  SEMUA. Tidak ada cache sama sekali.
+
+Kesimpulan praktis untuk dua-duanya:
+  EXPORT SEGERA setelah scan selesai. Jangan disambi, jangan
+  ditinggal makan, jangan "nanti aja". Menjalankan ulang scan
+  dari nol itu buang waktu dan menambah beban ke Shopee.
+
+
+------------------------------------------------------------
+4. BATASANNYA (baca ini, jangan kaget nanti)
+------------------------------------------------------------
+
+[1] SETENGAH MANUAL
+    Kamu tetap harus: login, buka tab Pesanan, pilih "Selesai",
+    scroll ke bawah, dan klik tombolnya. Script cuma mengambil
+    alih bagian membaca dan mengumpulkan.
+
+[2] BISA RUSAK KAPAN SAJA
+    Script membaca struktur halaman Shopee. Setiap kali Shopee
+    mengubah layout, nama class, atau cara memuat data, script
+    bisa berhenti bekerja. Tidak ada pemberitahuan - tiba-tiba
+    saja hasilnya 0.
+
+    Gejala kalau sudah rusak:
+    - "Scan halaman ini" hasilnya 0 pesanan
+    - "Tidak ketemu tombol Berikutnya"
+    - tabel kosong padahal halaman jelas ada pesanannya
+
+[3] TIDAK ADA API RESMI
+    Semua ini membaca halaman seperti manusia. Shopee punya
+    anti-bot, jadi script sengaja dibuat lambat. Jangan naikkan
+    kecepatannya - risikonya akun kena limit, bukan script-nya.
+
+[4] TOTAL DI CSV BUKAN TOTAL DI STRUK
+    Kolom "Total Pesanan" = harga barang x jumlah.
+    BELUM termasuk ongkir, belum dipotong voucher.
+    Jadi kalau top up Rp 400.000 untuk barang Rp 390.000,
+    selisih Rp 10.000 itu ongkir.
+
+[5] MAKSIMAL 40 HALAMAN per "Auto semua halaman"
+    Bisa diubah di CONFIG.MAX_PAGES kalau perlu, tapi makin
+    banyak makin lama dan makin besar risiko.
+
+[6] HANYA PESANAN YANG KAMU LIHAT
+    Kalau tab-nya "Selesai", yang terambil hanya yang selesai.
+    Pesanan dibatalkan, dikembalikan, atau masih jalan tidak ikut.
+    Jalankan per tab kalau butuh semuanya, lalu gabungkan.
+
+[7] NOMOR PESANAN & TOKO TERGANTUNG SUMBERNYA
+    Kalau JSON halaman tidak ketemu, script membaca kartu di
+    layar. Kartu tidak selalu memuat nomor pesanan. Jadi ada
+    kolom yang bisa kosong - itu wajar, bukan error.
+
+[8] TIDAK BISA JALAN DI LATAR BELAKANG
+    Harus tab aktif. Kalau tab di-minimize atau pindah, browser
+    memperlambat timer dan prosesnya bisa berhenti di tengah.
+
+
+------------------------------------------------------------
+5. KALAU SCRIPT RUSAK, APA YANG DILAKUKAN
+------------------------------------------------------------
+
+Urut dari paling cepat:
+
+1. Refresh halaman, scroll ke bawah, coba "Scan halaman ini" lagi.
+   Kadang cuma masalah halaman belum selesai loading.
+
+2. Cek apakah masih di tab yang benar (Pesanan Saya -> Selesai)
+   dan sudah login.
+
+3. Buka Console browser (F12 -> Console). Kalau ada tulisan merah,
+   screenshot dan simpan - itu petunjuk bagian mana yang berubah.
+
+4. Kalau tetap 0: layout Shopee berubah. Script perlu diperbarui.
+   Yang perlu dicek: cara menemukan kartu pesanan dan tombol
+   "Berikutnya". Buka file script, cari fungsi scrapeCards()
+   dan findNext().
+
+5. Selama script belum diperbaiki, pakai cara manual: buka
+   pesanan satu-satu, catat tanggal + nominal, lalu masukkan
+   ke transaksi.csv sendiri. Formatnya ada di BACA DULU.txt
+   bagian 8.
+
+
+------------------------------------------------------------
+6. SETELAH DAPAT CSV-NYA
+------------------------------------------------------------
+
+Kalau tujuannya mencocokkan uang ShopeePay:
+
+    python tools\3_rekonsiliasi.py transaksi.csv hasil_shopee.csv
+
+Kalau cuma mau laporan belanja Shopee, CSV-nya sudah bisa dibaca
+langsung di Excel.
+
+Kolom yang dibaca 3_rekonsiliasi.py (nama header beda antar versi,
+dua-duanya sudah dikenali):
+
+    v3    : Tanggal | Toko | Item | Qty | Harga | Total Pesanan | ...
+    v2.2  : Entry | Shop | Order Date | Item | ... | Total Pesanan | URL
+
+Yang penting ada: tanggal, Item, dan Total Pesanan.
+
+
+------------------------------------------------------------
+7. RINGKASAN SATU PARAGRAF
+------------------------------------------------------------
+
+Login, buka Pesanan Saya, pilih tab Selesai, scroll ke bawah
+sampai nomor halaman muncul, klik Scan, klik Auto, tunggu,
+lalu LANGSUNG Export CSV. Kalau hasilnya 0 atau tombol
+Berikutnya tidak ketemu, berarti layout Shopee berubah dan
+script perlu diperbarui - bukan salah kamu.

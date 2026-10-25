@@ -1,0 +1,87 @@
+============================================================
+CARA PASANG SCRIPT SHOPEE
+============================================================
+
+Butuh: browser Chrome / Edge / Firefox + ekstensi Tampermonkey
+(gratis, di toko ekstensi browser).
+
+
+------------------------------------------------------------
+PILIH YANG MANA?
+------------------------------------------------------------
+2_shopee_daftar_v3.txt   <-- pakai ini kalau butuh banyak order
+                             Baca halaman "Pesanan Saya" sekaligus.
+                             200+ order dalam satu kali scan.
+                             Tidak buka tab baru, jadi aman dari
+                             pemblokiran popup.
+
+1_shopee_popup_v2.2.txt  <-- pakai kalau butuh detail per order
+                             Buka tiap order satu-satu (lewat iframe
+                             tersembunyi). Lebih lambat, tapi dapat
+                             nama toko, nomor pesanan, dan total
+                             pesanan yang lebih lengkap.
+
+
+------------------------------------------------------------
+LANGKAH PASANG
+------------------------------------------------------------
+1. Install Tampermonkey di browser.
+
+2. Klik ikon Tampermonkey -> Dashboard.
+
+3. Klik tab "+" (tambah script baru).
+
+4. Buka file .txt yang mau dipakai pakai Notepad.
+   Ctrl+A lalu Ctrl+C.
+
+5. Balik ke editor Tampermonkey:
+   Ctrl+A (pilih semua isi lama) lalu Ctrl+V (timpa).
+
+6. Ctrl+S untuk simpan.
+
+7. Buka shopee.co.id, login, buka menu Pesanan Saya.
+
+8. Refresh halaman. Panel script muncul di kanan.
+
+
+------------------------------------------------------------
+CARA PAKAI (v3 - daftar)
+------------------------------------------------------------
+1. Buka https://shopee.co.id/user/purchase/
+2. Klik "Scan halaman ini"
+3. Kalau order-nya banyak, klik "Auto semua halaman"
+   (script akan pindah halaman sendiri)
+4. Klik "Export CSV"
+
+Hasil CSV punya kolom:
+   Entry;Shop;Order Date;Item;Harga Asli;Harga Discount;Quantity;Total Pesanan;URL
+
+Kolom yang dipakai 3_rekonsiliasi.py: Order Date, Item, Total Pesanan.
+Jadi CSV-nya bisa langsung dipakai tanpa diubah.
+
+
+------------------------------------------------------------
+CATATAN PENTING
+------------------------------------------------------------
+- Script cuma MEMBACA halaman yang sudah kamu buka sendiri.
+  Tidak mengirim data ke mana pun, tidak login otomatis.
+- Jangan klik terlalu cepat. Kasih jeda beberapa detik antar
+  halaman supaya tidak dianggap bot oleh Shopee.
+- "Total Pesanan" di CSV = harga barang x jumlah. BELUM termasuk
+  ongkir. Jadi kalau top up 400.000 untuk barang 390.000,
+  selisih 10.000 itu ongkir.
+- Kalau muncul peringatan "popup diblokir", izinkan popup untuk
+  shopee.co.id di pengaturan browser, lalu klik Start lagi.
+- Kalau hasilnya kosong, pastikan kamu sudah login dan halamannya
+  sudah selesai loading sebelum klik Scan.
+
+------------------------------------------------------------
+SETELAH TERPASANG
+------------------------------------------------------------
+Cara pakai harian (langkah harvest, scroll, export) dan daftar
+batasannya ada di:
+
+    CARA PAKAI.txt
+
+Wajib dibaca sekali - di situ dijelaskan kenapa harus scroll
+ke bawah dulu dan kenapa harus langsung export.

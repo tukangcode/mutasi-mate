@@ -1,0 +1,656 @@
+// ==UserScript==
+// @name         Shopee Financial Tracker v3
+// @namespace    http://tampermonkey.net/
+// @version      3.0
+// @description  Kumpulkan pesanan Shopee dari data yang halaman sudah muat sendiri (tanpa buka popup). Tahan perubahan class.
+// @author       Ryu-Sena / rebuilt
+// @match        https://shopee.co.id/user/purchase/*
+// @run-at       document-start
+// @grant        none
+// ==/UserScript==
+
+/*
+ * KENAPA DITULIS ULANG
+ * --------------------
+ * Versi lama membuka 1 popup per pesanan lalu membaca DOM pakai class
+ * seperti .mZ1OWk / .UDaMW3. Dua masalah:
+ *   1. Class Shopee itu CSS-module hash (k9Km93, tkrhto, ...) - ganti tiap
+ *      deploy. 7 dari 8 selector lama sudah tidak ada di halaman.
+ *   2. 230 popup berturut-turut = pola bot. Itu yang memicu anti-DDoS.
+ *
+ * Versi ini TIDAK meminta halaman baru. Dia mencuri JSON yang halaman
+ * Shopee sudah ambil sendiri (fetch/XHR), jadi:
+ *   - tidak ada request tambahan  -> risiko bot hampir nol
+ *   - data asli dari server (order_sn, create_time, item_list) -> akurat
+ *   - tidak tergantung class      -> tidak rusak saat Shopee deploy
+ *
+ * DOM tetap dipakai sebagai cadangan kalau hook tidak dapat apa-apa.
+ */
+
+(function () {
+    'use strict';
+    if (window.__SFT3__) return;
+    window.__SFT3__ = true;
+
+    const CFG = {
+        VERSION: '3.0',
+        STORE: 'sft3_orders_v1',
+        DELIM: ';',
+        CONTENT_TIMEOUT: 12000,
+        CONTENT_POLL: 150,
+        POPUP_MIN: 2200,
+        POPUP_MAX: 4200,
+        PAGER_MIN: 1800,
+        PAGER_MAX: 3200,
+        MAX_PAGES: 40
+    };
+
+    const ORDER_PATH = '/user/purchase/order/';
+    const STATUS_WORDS = ['Selesai', 'Dikirim', 'Diproses', 'Dibatalkan', 'Menunggu Pembayaran',
+        'Menunggu Konfirmasi', 'Sedang Dikemas', 'Terkirim', 'Dikembalikan', 'Gagal', 'Dikemas',
+        'Menunggu', 'Dibatalkan oleh Penjual', 'Pengembalian', 'Selesai Dikembalikan'];
+
+    // ================================================================ state
+    const store = new Map();      // key -> order
+    let panel = null, tableBody = null, statusEl = null, busy = false;
+    let lastSource = { json: 0, dom: 0 };
+
+    function keyOf(o) { return o.id || o.sn || ('x' + Math.random()); }
+
+    function loadStore() {
+        try {
+            const raw = localStorage.getItem(CFG.STORE);
+            if (!raw) return;
+            JSON.parse(raw).forEach(o => { if (o && o.v === 3 && (o.id || o.sn)) store.set(keyOf(o), o); });
+        } catch (e) { }
+    }
+    function saveStore() {
+        try { localStorage.setItem(CFG.STORE, JSON.stringify([...store.values()])); } catch (e) { }
+    }
+
+    // ================================================================ money
+    // Shopee kadang kirim harga dalam "micro units" (x100000).
+    function microFix(n, ref) {
+        n = Math.abs(Number(n) || 0);
+        if (!n) return 0;
+        if (ref) {                                  // pakai total DOM sebagai patokan
+            const cands = [n, n / 1e5, n / 1e2];
+            let best = cands[0], diff = Infinity;
+            cands.forEach(c => {
+                const d = Math.abs(Math.round(c) - ref);
+                if (d < diff) { diff = d; best = c; }
+            });
+            if (diff <= Math.max(2, ref * 0.02)) return Math.round(best);
+        }
+        if (n >= 1e7 && n % 1e5 === 0) return Math.round(n / 1e5);
+        return Math.round(n);
+    }
+    function rpText(s) {
+        const m = String(s || '').match(/-?Rp\s?([\d.]+)/);
+        return m ? Number(m[1].replace(/\./g, '')) : 0;
+    }
+    function fmtRp(n) {
+        return 'Rp ' + (Math.round(n) || 0).toLocaleString('id-ID');
+    }
+
+    // ================================================================ dates
+    function isoFromUnix(sec) {
+        const n = Number(sec) || 0;
+        if (!n) return '';
+        const ms = n > 1e12 ? n : n * 1000;         // detik atau milidetik
+        const d = new Date(ms);
+        if (isNaN(d) || d.getFullYear() < 2015) return '';
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+    // Nomor pesanan Shopee diawali YYMMDD (261015NS60SYT7 = 2026-10-15)
+    function isoFromSn(sn) {
+        const m = String(sn || '').match(/^(\d{2})(\d{2})(\d{2})[A-Z]/);
+        if (!m) return '';
+        const y = 2000 + Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+        if (mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+        const dt = new Date(y, mo - 1, d);
+        if (isNaN(dt) || dt.getFullYear() < 2015) return '';
+        return y + '-' + pad(mo) + '-' + pad(d);
+    }
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function isoToDmy(iso) {
+        if (!iso) return '';
+        const p = iso.split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+    }
+
+    // ================================================================ JSON harvest
+    // Cari objek yang bentuknya pesanan, di kedalaman JSON berapa pun.
+    function looksLikeOrder(o) {
+        if (!o || typeof o !== 'object' || Array.isArray(o)) return false;
+        const sn = o.order_sn || o.ordersn || o.orderSN || o.order_sn_v2;
+        const items = o.item_list || o.itemList || o.items;
+        return typeof sn === 'string' && sn.length >= 8 && Array.isArray(items);
+    }
+    function deepFindOrders(node, out, depth) {
+        if (!node || depth > 14 || out.length > 500) return;
+        if (Array.isArray(node)) { node.forEach(n => deepFindOrders(n, out, depth + 1)); return; }
+        if (typeof node !== 'object') return;
+        if (looksLikeOrder(node)) { out.push(node); return; }
+        for (const k in node) {
+            if (Object.prototype.hasOwnProperty.call(node, k)) deepFindOrders(node[k], out, depth + 1);
+        }
+    }
+
+    function itemFromJson(it) {
+        const name = it.name || it.item_name || it.itemName || '';
+        const qty = Number(it.model_quantity_purchased || it.quantity_purchased || it.quantity || it.qty || 1) || 1;
+        const rawPrice = it.amount || it.price || it.item_price || it.price_min || 0;
+        return { name: String(name).trim(), qty: qty, price: microFix(rawPrice), priceOri: microFix(rawPrice) };
+    }
+
+    function orderFromJson(raw) {
+        const sn = String(raw.order_sn || raw.ordersn || '').trim();
+        const id = String(raw.orderid || raw.order_id || raw.orderId || '').trim();
+        const ct = raw.create_time || raw.createTime || raw.ctime || 0;
+        const items = (raw.item_list || raw.itemList || raw.items || []).map(itemFromJson)
+            .filter(i => i.name);
+        const totalRaw = raw.total_amount || raw.total || raw.final_total || raw.amount || 0;
+        const shop = raw.shop_name || raw.shopname || (raw.shop && raw.shop.name) || '';
+        return {
+            key: id || sn,
+            id: id, sn: sn,
+            date: isoFromUnix(ct) || isoFromSn(sn),
+            dateSrc: isoFromUnix(ct) ? 'json' : (isoFromSn(sn) ? 'sn' : ''),
+            shop: String(shop).trim(),
+            items: items,
+            total: microFix(totalRaw),
+            status: raw.status || raw.order_status || '',
+            url: id ? ('https://shopee.co.id' + ORDER_PATH + id + '?type=3') : '',
+            src: 'json', v: 3
+        };
+    }
+
+    function harvestJson(obj) {
+        const found = [];
+        deepFindOrders(obj, found, 0);
+        let n = 0;
+        found.forEach(raw => {
+            const o = orderFromJson(raw);
+            if (!o.key || (!o.items.length && !o.total)) return;
+            mergeOrder(o);
+            n++;
+        });
+        if (n) { lastSource.json += n; saveStore(); scheduleRender(); }
+        return n;
+    }
+
+    function mergeOrder(incoming) {
+        const k = keyOf(incoming);
+        const cur = store.get(k);
+        if (!cur) { store.set(k, incoming); return; }
+        // DOM yang baru dibaca = kebenaran terbaru, boleh menimpa record DOM lama.
+        // Yang tidak boleh ditimpa DOM: data dari JSON server.
+        if (incoming.src === 'dom' && cur.src !== 'json') {
+            incoming.date = cur.date || incoming.date;
+            incoming.dateSrc = cur.dateSrc || incoming.dateSrc;
+            incoming.sn = cur.sn || incoming.sn;
+            store.set(k, incoming);
+            return;
+        }
+        // gabung: isi yang kosong, jangan timpa yang sudah bagus
+        const merged = Object.assign({}, cur);
+        ['id', 'sn', 'shop', 'status', 'url'].forEach(f => {
+            if (!merged[f] && incoming[f]) merged[f] = incoming[f];
+        });
+        if (!merged.date && incoming.date) { merged.date = incoming.date; merged.dateSrc = incoming.dateSrc; }
+        if (!merged.total && incoming.total) merged.total = incoming.total;
+        if ((!merged.items || !merged.items.length) && incoming.items && incoming.items.length) merged.items = incoming.items;
+        if (incoming.src === 'json') merged.src = 'json';
+        store.set(k, merged);
+    }
+
+    // ================================================================ DOM fallback
+    function leafEls(root) {
+        return [...root.querySelectorAll('*')].filter(e => e.children.length === 0 && (e.textContent || '').trim());
+    }
+    function shopFromCard(card) {
+        // nama toko = elemen tepat sebelum tombol chat / link toko.
+        // (badge seperti "Preferred Seller" / alt "Shop Icon" ada di depannya)
+        const link = card.querySelector('a[href*="entryPoint=OrderDetail"]');
+        if (link) {
+            let sib = link.previousElementSibling;
+            while (sib) {
+                if (!sib.querySelector('a,button')) {
+                    const t = (sib.textContent || '').trim();
+                    if (t.length > 1 && !/^(Shop Icon|Preferred Seller|Mall)$/i.test(t)) return t;
+                }
+                sib = sib.previousElementSibling;
+            }
+        }
+        return '';
+    }
+    function statusFromCard(card) {
+        for (const e of leafEls(card)) {
+            const t = e.textContent.trim();
+            if (STATUS_WORDS.indexOf(t) >= 0) return t;
+        }
+        return '';
+    }
+    function itemsFromCard(card) {
+        const out = [];
+        const qtys = leafEls(card).filter(e => /^x\d+$/.test(e.textContent.trim()));
+        qtys.forEach(q => {
+            let row = q;
+            for (let i = 0; i < 6 && row; i++) {
+                if (/Rp\s?[\d.]+/.test(row.innerText || '')) break;
+                row = row.parentElement;
+            }
+            if (!row) return;
+            const texts = leafEls(row).map(e => e.textContent.trim());
+            const prices = texts.filter(t => /^-?Rp\s?[\d.]+$/.test(t));
+            const name = texts.filter(t => !/^-?Rp/.test(t) && !/^x\d+$/.test(t) && !/^Variasi/i.test(t))
+                .sort((a, b) => b.length - a.length)[0] || '';
+            if (!name) return;
+            const qty = parseInt(q.textContent.trim().replace(/^x/, ''), 10) || 1;
+            out.push({
+                name: name,
+                qty: qty,
+                price: prices.length ? rpText(prices[prices.length - 1]) : 0,
+                priceOri: prices.length ? rpText(prices[0]) : 0
+            });
+        });
+        return out;
+    }
+    function scrapeCards() {
+        const links = [...document.querySelectorAll('a[href*="' + ORDER_PATH + '"]')];
+        const seen = new Set();
+        let added = 0;
+        links.forEach(a => {
+            const m = (a.getAttribute('href') || '').match(/\/user\/purchase\/order\/(\d+)/);
+            if (!m) return;
+            const id = m[1];
+            if (seen.has(id)) return;
+            seen.add(id);
+            const known = store.get(id);
+            // JSON dari server itu otoritatif -> boleh skip. Hasil DOM jangan:
+            // kalau versi script berubah, data DOM lama harus di-parse ulang.
+            if (known && known.src === 'json' && known.items && known.items.length) return;
+            let card = a;
+            for (let i = 0; i < 14 && card; i++) {
+                const t = card.innerText || '';
+                if (/Total Pesanan/.test(t) && t.length < 2500) break;
+                card = card.parentElement;
+            }
+            if (!card || !/Total Pesanan/.test(card.innerText || '')) return;
+
+            const txt = card.innerText;
+            const tm = txt.match(/Total Pesanan:?\s*(?:Rp\s?([\d.]+))/) || txt.match(/Total Pesanan[^R]*Rp\s?([\d.]+)/);
+            const total = tm ? Number(tm[1].replace(/\./g, '')) : 0;
+            const items = itemsFromCard(card);
+            const shop = shopFromCard(card);
+
+            if (!items.length && !total) return;
+            const o = {
+                key: id, id: id, sn: '', date: '', dateSrc: '',
+                shop: shop, items: items, total: total,
+                status: statusFromCard(card),
+                url: 'https://shopee.co.id' + ORDER_PATH + id + '?type=3',
+                src: 'dom', v: 3
+            };
+            const before = store.get(id);
+            mergeOrder(o);
+            if (!before) added++;
+        });
+        lastSource.dom += added;
+        if (added) saveStore();
+        return added;
+    }
+
+    // ================================================================ date via popup (opsional)
+    function waitForText(win, sel, timeout) {
+        return new Promise(resolve => {
+            const t0 = Date.now();
+            let tick = null;
+            const done = r => { if (tick) clearInterval(tick); resolve(r); };
+            tick = setInterval(() => {
+                if (!win || win.closed) return done(null);
+                let doc = null;
+                try { doc = win.document; } catch (e) { return; }
+                if (!doc || !doc.body) return;
+                const el = doc.querySelector(sel);
+                if (el && (el.textContent || '').trim()) return done(el.textContent.trim());
+                if (Date.now() - t0 > timeout) return done(null);
+            }, CFG.CONTENT_POLL);
+        });
+    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+
+    async function fillDates() {
+        const missing = [...store.values()].filter(o => !o.date && o.url);
+        if (!missing.length) { setStatus('Semua pesanan sudah punya tanggal.', 'ok'); return; }
+        setStatus('Mengambil tanggal ' + missing.length + ' pesanan (buka popup, sabar)...', 'busy');
+        let ok = 0;
+        for (let i = 0; i < missing.length; i++) {
+            const o = missing[i];
+            setStatus('Tanggal ' + (i + 1) + '/' + missing.length + ' - ' + (o.shop || o.id), 'busy');
+            const win = window.open(o.url, '_blank', 'width=460,height=760');
+            if (!win) { setStatus('Popup diblokir. Izinkan popup untuk shopee.co.id lalu coba lagi.', 'err'); return; }
+            try {
+                const dateTxt = await waitForText(win, '.stepper__step-date', CFG.CONTENT_TIMEOUT);
+                let body = '';
+                try { body = win.document.body.innerText; } catch (e) { }
+                const snm = body.match(/NO\.?\s*PESANAN\.?\s*([A-Z0-9]{8,})/i);
+                const dm = (dateTxt || '').match(/(\d{2})-(\d{2})-(\d{4})/);
+                if (dm) { o.date = dm[3] + '-' + dm[2] + '-' + dm[1]; o.dateSrc = 'popup'; ok++; }
+                if (snm) { o.sn = snm[1]; if (!o.date) { const d = isoFromSn(o.sn); if (d) { o.date = d; o.dateSrc = 'sn'; ok++; } } }
+                store.set(keyOf(o), o);
+            } catch (e) { }
+            try { win.close(); } catch (e) { }
+            saveStore(); scheduleRender();
+            await sleep(rnd(CFG.POPUP_MIN, CFG.POPUP_MAX));
+        }
+        setStatus('Selesai. ' + ok + ' tanggal terisi.', 'ok');
+    }
+
+    // ================================================================ pagination
+    function findNext() {
+        const cands = [...document.querySelectorAll('button,a')];
+        for (const el of cands) {
+            const t = (el.innerText || '').trim().toLowerCase();
+            const al = (el.getAttribute('aria-label') || '').toLowerCase();
+            if (/berikutnya|next/.test(t) || /berikutnya|next page/.test(al)) {
+                if (!el.disabled) return el;
+            }
+        }
+        // pagination angka: klik nomor setelah yang aktif
+        const nums = cands.filter(el => /^\d+$/.test((el.innerText || '').trim()));
+        for (let i = 0; i < nums.length; i++) {
+            const cls = (nums[i].className || '') + ' ' + (nums[i].getAttribute('aria-current') || '');
+            if (/active|current|selected|--active/i.test(cls)) {
+                return nums[i + 1] || null;
+            }
+        }
+        return null;
+    }
+    async function autoPages() {
+        for (let p = 0; p < CFG.MAX_PAGES; p++) {
+            const before = store.size;
+            scrapeCards();
+            scheduleRender();
+            const btn = findNext();
+            if (!btn) { setStatus('Tidak ketemu tombol "Berikutnya". Klik manual - data tetap ketangkap.', 'warn'); return; }
+            setStatus('Halaman ' + (p + 2) + '... (' + store.size + ' pesanan)', 'busy');
+            btn.click();
+            await sleep(rnd(CFG.PAGER_MIN, CFG.PAGER_MAX));
+            if (store.size === before && p > 1) { setStatus('Berhenti: tidak ada pesanan baru.', 'warn'); return; }
+        }
+    }
+
+    // ================================================================ export
+    function rows() {
+        return [...store.values()].sort((a, b) => (a.date || '9999') < (b.date || '9999') ? -1 : 1);
+    }
+    function download(text, name, mime) {
+        const blob = new Blob(['\ufeff' + text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+    function exportCsv() {
+        const head = ['Tanggal', 'Toko', 'Item', 'Qty', 'Harga', 'Total Pesanan', 'Status', 'No. Pesanan', 'URL'];
+        let csv = head.join(CFG.DELIM) + '\n';
+        rows().forEach(o => {
+            const its = o.items.length ? o.items : [{ name: '', qty: '', price: '' }];
+            its.forEach(it => {
+                csv += [
+                    isoToDmy(o.date), '"' + (o.shop || '').replace(/"/g, '""') + '"',
+                    '"' + (it.name || '').replace(/"/g, '""') + '"', it.qty || '',
+                    it.price || '', o.total || 0, o.status || '', o.sn || '', o.url || ''
+                ].join(CFG.DELIM) + '\n';
+            });
+        });
+        download(csv, 'shopee_orders_v3.csv', 'text/csv');
+        setStatus('CSV diexport: ' + rows().length + ' pesanan.', 'ok');
+    }
+    function exportJson() {
+        download(JSON.stringify(rows(), null, 1), 'shopee_orders_v3.json', 'application/json');
+    }
+    function exportMd() {
+        let md = '# Shopee Orders\n\n| Tanggal | Toko | Item | Qty | Total |\n|---|---|---|---|---|\n';
+        rows().forEach(o => {
+            o.items.forEach(it => {
+                md += '| ' + isoToDmy(o.date) + ' | ' + (o.shop || '') + ' | ' + (it.name || '') +
+                    ' | ' + (it.qty || '') + ' | ' + (it.price || '') + ' |\n';
+            });
+        });
+        download(md, 'shopee_orders_v3.md');
+    }
+
+    // ================================================================ UI
+    const CSS = `
+#sft3-panel{position:fixed;right:16px;bottom:16px;width:520px;max-height:78vh;z-index:2147483000;
+ background:#fff;border-radius:14px;box-shadow:0 18px 50px -12px rgba(0,0,0,.45);
+ font:13px/1.45 "Segoe UI",system-ui,sans-serif;color:#16262b;display:flex;flex-direction:column;overflow:hidden}
+#sft3-panel .hd{background:linear-gradient(135deg,#0f3b44,#1e7b7b);color:#fff;padding:11px 14px;
+ display:flex;justify-content:space-between;align-items:center;cursor:default}
+#sft3-panel .hd b{font-size:13.5px;letter-spacing:.2px}
+#sft3-panel .hd small{opacity:.75;font-weight:400}
+#sft3-panel .bd{padding:11px 14px;overflow:auto}
+#sft3-panel .st{background:#f2f6f7;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;min-height:20px}
+#sft3-panel .st.ok{background:#e6f4ec;color:#1e7b3c}
+#sft3-panel .st.err{background:#fdeaea;color:#b91c1c}
+#sft3-panel .st.warn{background:#fff4e5;color:#b45309}
+#sft3-panel .st.busy{background:#eaf1fb;color:#1e4b8b}
+#sft3-panel .row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+#sft3-panel button{border:1px solid #d7e2e4;background:#fff;border-radius:8px;padding:7px 11px;
+ font:inherit;font-size:12.5px;cursor:pointer;color:#16262b}
+#sft3-panel button:hover{background:#f2f8f8;border-color:#1e7b7b}
+#sft3-panel button.pri{background:#1e7b7b;color:#fff;border-color:#1e7b7b;font-weight:600}
+#sft3-panel button.pri:hover{background:#176666}
+#sft3-panel button:disabled{opacity:.45;cursor:not-allowed}
+#sft3-panel table{width:100%;border-collapse:collapse;font-size:12px}
+#sft3-panel th{text-align:left;color:#5a6d73;font-weight:600;font-size:11px;text-transform:uppercase;
+ letter-spacing:.4px;padding:5px 6px;border-bottom:1px solid #e2eaec;position:sticky;top:0;background:#fff}
+#sft3-panel td{padding:5px 6px;border-bottom:1px solid #f1f5f6;vertical-align:top}
+#sft3-panel td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#sft3-panel .tw{max-height:260px;overflow:auto;border:1px solid #eef3f4;border-radius:8px}
+#sft3-panel .ft{padding:9px 14px;border-top:1px solid #eef3f4;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#sft3-panel .badge{font-size:11px;background:#eaf1fb;color:#1e4b8b;border-radius:999px;padding:2px 8px}
+#sft3-fab{position:fixed;right:16px;bottom:16px;z-index:2147483000;background:#1e7b7b;color:#fff;
+ border:none;border-radius:999px;padding:12px 18px;font:600 13px "Segoe UI",sans-serif;cursor:pointer;
+ box-shadow:0 10px 26px -8px rgba(0,0,0,.5)}
+#sft3-panel.hide{display:none}
+`;
+    function injectCss() {
+        const s = document.createElement('style');
+        s.textContent = CSS;
+        (document.head || document.documentElement).appendChild(s);
+    }
+    function setStatus(msg, cls) {
+        if (!statusEl) return;
+        statusEl.textContent = msg;
+        statusEl.className = 'st ' + (cls || '');
+    }
+    function scheduleRender() { setTimeout(renderTable, 60); }
+
+    function renderTable() {
+        if (!tableBody) return;
+        const rs = rows();
+        const withDate = rs.filter(o => o.date).length;
+        const sum = rs.reduce((t, o) => t + (o.total || 0), 0);
+        tableBody.innerHTML = rs.slice(0, 300).map(o => {
+            const it = o.items[0] ? o.items[0].name : '';
+            const more = o.items.length > 1 ? ' <span class="badge">+' + (o.items.length - 1) + '</span>' : '';
+            return '<tr><td>' + (isoToDmy(o.date) || '<i>-</i>') + '</td>' +
+                '<td>' + esc(o.shop || '-') + '</td>' +
+                '<td>' + esc(it.slice(0, 42)) + more + '</td>' +
+                '<td class="n">' + fmtRp(o.total) + '</td>' +
+                '<td>' + esc(o.status || '') + '</td></tr>';
+        }).join('');
+        document.getElementById('sft3-count').textContent =
+            rs.length + ' pesanan - ' + withDate + ' ada tanggal - ' + fmtRp(sum);
+    }
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function buildUI() {
+        injectCss();
+        const fab = document.createElement('button');
+        fab.id = 'sft3-fab';
+        fab.textContent = '📦 Shopee Tracker';
+        fab.onclick = () => { panel.classList.remove('hide'); fab.style.display = 'none'; };
+        document.body.appendChild(fab);
+
+        panel = document.createElement('div');
+        panel.id = 'sft3-panel';
+        panel.innerHTML = `
+<div class="hd">
+  <div><b>Shopee Financial Tracker</b> <small>v${CFG.VERSION}</small></div>
+  <div><button id="sft3-min" style="background:transparent;border:none;color:#fff;font-size:16px;cursor:pointer">–</button></div>
+</div>
+<div class="bd">
+  <div class="st" id="sft3-status">Siap. Buka daftar pesanan lalu klik "Scan halaman ini".</div>
+  <div class="row">
+    <button class="pri" id="sft3-scan">Scan halaman ini</button>
+    <button id="sft3-auto">Auto halaman</button>
+    <button id="sft3-dates">Ambil tanggal (popup)</button>
+  </div>
+  <div class="row">
+    <button id="sft3-csv">Export CSV</button>
+    <button id="sft3-json">JSON</button>
+    <button id="sft3-md">Markdown</button>
+    <button id="sft3-reset">Reset</button>
+  </div>
+  <div id="sft3-count" style="font-size:12px;color:#5a6d73;margin:4px 0 6px">0 pesanan</div>
+  <div class="tw"><table><thead><tr><th>Tanggal</th><th>Toko</th><th>Item</th><th class="n">Total</th><th>Status</th></tr></thead>
+  <tbody id="sft3-tb"></tbody></table></div>
+</div>
+<div class="ft">
+  <span style="font-size:11.5px;color:#5a6d73">Data diambil dari response halaman sendiri - tanpa request tambahan.</span>
+</div>`;
+        document.body.appendChild(panel);
+        tableBody = document.getElementById('sft3-tb');
+        statusEl = document.getElementById('sft3-status');
+
+        document.getElementById('sft3-min').onclick = () => {
+            panel.classList.add('hide');
+            fab.style.display = 'block';
+        };
+        document.getElementById('sft3-scan').onclick = () => {
+            const n = scrapeCards();
+            renderTable();
+            setStatus(n ? ('+' + n + ' pesanan dari halaman ini. Total ' + store.size + '.') :
+                'Tidak ada pesanan baru di halaman ini.', n ? 'ok' : 'warn');
+        };
+        document.getElementById('sft3-auto').onclick = async () => {
+            if (busy) return;
+            busy = true; setStatus('Mulai auto halaman...', 'busy');
+            try { await autoPages(); } finally { busy = false; renderTable(); }
+        };
+        document.getElementById('sft3-dates').onclick = async () => {
+            if (busy) return;
+            busy = true;
+            try { await fillDates(); } finally { busy = false; renderTable(); }
+        };
+        document.getElementById('sft3-csv').onclick = exportCsv;
+        document.getElementById('sft3-json').onclick = exportJson;
+        document.getElementById('sft3-md').onclick = exportMd;
+        document.getElementById('sft3-reset').onclick = () => {
+            if (!confirm('Hapus semua data yang terkumpul?')) return;
+            store.clear(); saveStore(); renderTable(); setStatus('Data direset.', 'warn');
+        };
+        renderTable();
+    }
+
+    // ================================================================ network hooks
+    // Dijalankan di konteks halaman (bukan sandbox) supaya bisa mencuri
+    // response fetch/XHR milik Shopee sendiri.
+    function installHooks() {
+        const OFFSET = 0;
+
+        const origFetch = window.fetch;
+        if (origFetch) {
+            window.fetch = function () {
+                const p = origFetch.apply(this, arguments);
+                try {
+                    p.then(res => {
+                        try {
+                            const ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+                            if (/json/i.test(ct) || /api/i.test(res.url || '')) {
+                                res.clone().text().then(txt => {
+                                    if (!txt || txt.length < 40 || txt[0] !== '{' && txt[0] !== '[') return;
+                                    let data = null;
+                                    try { data = JSON.parse(txt); } catch (e) { return; }
+                                    window.postMessage({ __sft3: true, data: data }, '*');
+                                }).catch(() => { });
+                            }
+                        } catch (e) { }
+                    }).catch(() => { });
+                } catch (e) { }
+                return p;
+            };
+        }
+
+        const XO = XMLHttpRequest.prototype.open;
+        const XS = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.open = function (m, u) {
+            this.__sft3url = u;
+            return XO.apply(this, arguments);
+        };
+        XMLHttpRequest.prototype.send = function () {
+            const url = this.__sft3url || '';
+            this.addEventListener('load', function () {
+                try {
+                    if (!/api|\/order|purchase/i.test(url)) return;
+                    const txt = this.responseText;
+                    if (!txt || txt.length < 40) return;
+                    if (txt[0] !== '{' && txt[0] !== '[') return;
+                    const data = JSON.parse(txt);
+                    window.postMessage({ __sft3: true, data: data }, '*');
+                } catch (e) { }
+            });
+            return XS.apply(this, arguments);
+        };
+    }
+
+    window.addEventListener('message', ev => {
+        if (ev.source !== window) return;
+        const d = ev.data;
+        if (!d || !d.__sft3) return;
+        harvestJson(d.data);
+    });
+
+    // ================================================================ boot
+    loadStore();
+    installHooks();                     // document-start: sebelum app Shopee jalan
+
+    function boot() {
+        buildUI();
+        const n = scrapeCards();
+        renderTable();
+        setStatus(n ? ('Siap. ' + n + ' pesanan dibaca dari halaman ini.') :
+            'Buka daftar pesanan (Pesanan Saya), lalu klik "Scan halaman ini".', n ? 'ok' : '');
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+    // halaman SPA: hanya scan ulang kalau jumlah kartu berubah (murah)
+    let lastLinks = -1;
+    setInterval(() => {
+        if (busy) return;
+        const n = document.querySelectorAll('a[href*="' + ORDER_PATH + '"]').length;
+        if (n === lastLinks) return;
+        lastLinks = n;
+        const added = scrapeCards();
+        if (added) renderTable();
+    }, 6000);
+
+    // debug dari console: __SFT3_DEBUG__.store / .rows() / .scrapeCards()
+    window.__SFT3_DEBUG__ = {
+        store: store, rows: rows, scrapeCards: scrapeCards, harvestJson: harvestJson,
+        orderFromJson: orderFromJson, itemsFromCard: itemsFromCard, isoFromSn: isoFromSn,
+        microFix: microFix, exportCsv: exportCsv
+    };
+})();

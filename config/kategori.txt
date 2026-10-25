@@ -1,0 +1,238 @@
+﻿# ============================================================
+#  ATURAN KATEGORI
+#  Format:  kata kunci | Kategori | jenis
+#
+#  jenis = belanja  -> dihitung sebagai pengeluaran
+#          pindah   -> perpindahan uang (top up, tarik tunai, transfer sendiri)
+#          masuk    -> uang masuk (gaji, transfer masuk)
+#
+#  Dicek dari atas ke bawah, yang pertama cocok dipakai.
+#  Huruf besar/kecil tidak berpengaruh.
+#  Tambahkan baris sendiri sesuai kebiasaan kamu.
+# ============================================================
+
+# ---------- pindah dana (bukan belanja) ----------
+top up|E-Wallet Top Up|pindah
+topup|E-Wallet Top Up|pindah
+tarik tunai|Cash Withdrawal|pindah
+penarikan tunai|Cash Withdrawal|pindah
+atm|Cash Withdrawal|pindah
+transfer ke rekening sendiri|Own Account|pindah
+pindah buku|Own Account|pindah
+
+# ---------- uang masuk ----------
+gaji|Gaji|masuk
+payroll|Gaji|masuk
+bunga|Bunga Bank|masuk
+refund|Refund|masuk
+cashback|Cashback|masuk
+
+# ---------- tagihan ----------
+listrik|Bills & Utilities|belanja
+pln|Bills & Utilities|belanja
+air|Bills & Utilities|belanja
+pdam|Bills & Utilities|belanja
+internet|Bills & Utilities|belanja
+indihome|Bills & Utilities|belanja
+wifi|Bills & Utilities|belanja
+telkom|Bills & Utilities|belanja
+pulsa|Bills & Utilities|belanja
+paket data|Bills & Utilities|belanja
+telkomsel|Bills & Utilities|belanja
+xl|Bills & Utilities|belanja
+indosat|Bills & Utilities|belanja
+tri|Bills & Utilities|belanja
+bpjs|Bills & Utilities|belanja
+iuran|Bills & Utilities|belanja
+kos|Bills & Utilities|belanja
+sewa|Bills & Utilities|belanja
+
+# ---------- makan ----------
+makan|Food/Drink|belanja
+chicken|Food/Drink|belanja
+smash|Food/Drink|belanja
+food|Food/Drink|belanja
+kuliner|Food/Drink|belanja
+ayam|Food/Drink|belanja
+bakso|Food/Drink|belanja
+mie|Food/Drink|belanja
+nasi|Food/Drink|belanja
+sate|Food/Drink|belanja
+soto|Food/Drink|belanja
+martabak|Food/Drink|belanja
+kopi|Food/Drink|belanja
+cafe|Food/Drink|belanja
+coffee|Food/Drink|belanja
+resto|Food/Drink|belanja
+warung|Food/Drink|belanja
+kfc|Food/Drink|belanja
+mcd|Food/Drink|belanja
+burger|Food/Drink|belanja
+pizza|Food/Drink|belanja
+donat|Food/Drink|belanja
+roti|Food/Drink|belanja
+gacoan|Food/Drink|belanja
+geprek|Food/Drink|belanja
+seblak|Food/Drink|belanja
+dimsum|Food/Drink|belanja
+sushi|Food/Drink|belanja
+boba|Food/Drink|belanja
+es teh|Food/Drink|belanja
+jus|Food/Drink|belanja
+
+# ---------- belanja harian ----------
+indomaret|Groceries|belanja
+alfamart|Groceries|belanja
+alfamidi|Groceries|belanja
+supermarket|Groceries|belanja
+hypermart|Groceries|belanja
+transmart|Groceries|belanja
+carrefour|Groceries|belanja
+grosir|Groceries|belanja
+mart|Groceries|belanja
+sayur|Groceries|belanja
+buah|Groceries|belanja
+telur|Groceries|belanja
+beras|Groceries|belanja
+minyak|Groceries|belanja
+frozen|Groceries|belanja
+
+# ---------- transport ----------
+bensin|Transport|belanja
+pertalite|Transport|belanja
+pertamax|Transport|belanja
+solar|Transport|belanja
+spbu|Transport|belanja
+grab|Transport|belanja
+gojek|Transport|belanja
+gocar|Transport|belanja
+goride|Transport|belanja
+ojek|Transport|belanja
+parkir|Transport|belanja
+tol|Transport|belanja
+tiket|Transport|belanja
+bengkel|Maintenance Vehicle|belanja
+servis|Maintenance Vehicle|belanja
+oli|Maintenance Vehicle|belanja
+ban|Maintenance Vehicle|belanja
+
+# ---------- kesehatan ----------
+apotek|Health|belanja
+apotik|Health|belanja
+klinik|Health|belanja
+rumah sakit|Health|belanja
+dokter|Health|belanja
+obat|Health|belanja
+vitamin|Health|belanja
+chondromax|Kesehatan & Skincare|belanja
+skincare|Kesehatan & Skincare|belanja
+glow|Kesehatan & Skincare|belanja
+nu skin|Kesehatan & Skincare|belanja
+flimty|Kesehatan & Skincare|belanja
+
+# ---------- elektronik / komputer ----------
+komputer|Computer|belanja
+laptop|Computer|belanja
+ram|Computer|belanja
+motherboard|Computer|belanja
+monitor|Computer|belanja
+vga|Computer|belanja
+psu|Computer|belanja
+ssd|Computer|belanja
+hdd|Computer|belanja
+keyboard|Computer|belanja
+mouse|Computer|belanja
+headset|Computer|belanja
+charger|Computer|belanja
+kabel|Computer|belanja
+microsd|Computer|belanja
+flashdisk|Computer|belanja
+
+# ---------- kamera ----------
+kamera|Kamera & Foto|belanja
+lensa|Kamera & Foto|belanja
+brica|Kamera & Foto|belanja
+tripod|Kamera & Foto|belanja
+microphone|Kamera & Foto|belanja
+mikrofon|Kamera & Foto|belanja
+proyektor|Kamera & Foto|belanja
+
+# ---------- dapur ----------
+wajan|Dapur & Masak|belanja
+panci|Dapur & Masak|belanja
+grill|Dapur & Masak|belanja
+tamagoyaki|Dapur & Masak|belanja
+onigiri|Dapur & Masak|belanja
+miso|Dapur & Masak|belanja
+nori|Dapur & Masak|belanja
+wasabi|Dapur & Masak|belanja
+bumbu|Dapur & Masak|belanja
+
+# ---------- pakaian ----------
+gamis|Pakaian|belanja
+baju|Pakaian|belanja
+kaos|Pakaian|belanja
+celana|Pakaian|belanja
+hijab|Pakaian|belanja
+kerudung|Pakaian|belanja
+sepatu|Pakaian|belanja
+sandal|Pakaian|belanja
+
+# ---------- lain-lain ----------
+paket|Packing & Kirim|belanja
+ongkir|Packing & Kirim|belanja
+bubble|Packing & Kirim|belanja
+kardus|Packing & Kirim|belanja
+kursus|Education|belanja
+buku|Education|belanja
+sekolah|Education|belanja
+pdf|Education|belanja
+langganan|Subscription|belanja
+netflix|Subscription|belanja
+spotify|Subscription|belanja
+openai|AI Spending|belanja
+chatgpt|AI Spending|belanja
+claude|AI Spending|belanja
+anthropic|AI Spending|belanja
+gemini|AI Spending|belanja
+hiburan|Entertainment|belanja
+bioskop|Entertainment|belanja
+game|Entertainment|belanja
+
+# ---------- tambahan September 2026 ----------
+# AI / API / server
+zytro|AI Spending|belanja
+cosmoshub|AI Spending|belanja
+xoftware|AI Spending|belanja
+nuxys|AI Spending|belanja
+openrouter|AI Spending|belanja
+deepseek|AI Spending|belanja
+perplexity|AI Spending|belanja
+copilot|AI Spending|belanja
+muse|AI Spending|belanja
+dana ai|AI Spending|belanja
+buat ai|AI Spending|belanja
+ai harian|AI Spending|belanja
+new api|AI Spending|belanja
+vps|AI Spending|belanja
+idwebhost|Subscription|belanja
+hosting|Subscription|belanja
+domain|Subscription|belanja
+
+# toko & makan
+toko utma|Groceries|belanja
+marketku|Groceries|belanja
+zahra|Groceries|belanja
+susu|Food/Drink|belanja
+es teh|Food/Drink|belanja
+arkys|Food/Drink|belanja
+kf timbau|Food/Drink|belanja
+kuota|Bills & Utilities|belanja
+cell|Bills & Utilities|belanja
+
+# uang masuk
+minta uang|Uang Masuk|masuk
+
+# ---------- rekening sendiri (jangan dihitung belanja) ----------
+budi santoso|Own Account|pindah
+siti rahayu|Bills & Utilities|belanja

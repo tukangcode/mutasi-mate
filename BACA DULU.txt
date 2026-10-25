@@ -1,0 +1,177 @@
+﻿============================================================
+SPENDING TOOLKIT
+Ubah screenshot / e-statement jadi laporan pengeluaran
+============================================================
+
+Tidak terikat satu bank. Bisa dipakai untuk DG, BCA, BRI, Mandiri,
+Jago, SeaBank, OVO, GoPay, ShopeePay - apa saja yang keluarannya
+berupa PDF, gambar, atau teks.
+
+Semua diproses di komputer sendiri. Tidak ada data yang diupload.
+
+
+------------------------------------------------------------
+1. SYARAT (sekali saja)
+------------------------------------------------------------
+- Windows 10 atau 11
+- Python 3.9 ke atas  ->  https://python.org  (centang "Add to PATH")
+
+Lalu buka Command Prompt dan jalankan:
+
+    pip install pymupdf pillow winocr openpyxl
+
+Kalau `pip` tidak dikenali, pakai:
+
+    py -3 -m pip install pymupdf pillow winocr openpyxl
+
+OCR memakai mesin bawaan Windows (offline). Bahasa Indonesia
+opsional - kalau tidak ada, otomatis pakai bahasa Inggris.
+
+
+------------------------------------------------------------
+2. TIGA LANGKAH
+------------------------------------------------------------
+
+LANGKAH 1 - ambil datanya
+
+    python tools\1_ekstrak.py statement.pdf
+    python tools\1_ekstrak.py folder_screenshot\
+    python tools\1_ekstrak.py struk.jpg
+
+  Hasil: transaksi.csv
+  PDF: kalau ada lapisan teks dipakai itu. Kalau hasil scan,
+  halamannya di-render lalu di-OCR otomatis.
+
+LANGKAH 2 - jadi laporan
+
+    python tools\2_analisa.py transaksi.csv
+
+  Hasil: laporan.html (buka di browser) + tracker.xlsx
+
+LANGKAH 3 - (opsional) cari tahu uang e-wallet dipakai buat apa
+
+    python tools\3_rekonsiliasi.py transaksi.csv order_shopee.csv
+
+  Cocokkan "Top Up ShopeePay" di rekening dengan daftar belanja
+  Shopee, pakai metode FIFO. Hasil: rekonsiliasi.csv
+
+
+------------------------------------------------------------
+3. KALAU BANK KAMU TIDAK DIKENALI
+------------------------------------------------------------
+
+Jalankan dulu dengan --dump:
+
+    python tools\1_ekstrak.py statement.pdf --dump
+
+Muncul file teks_mentah.txt. Buka, Ctrl+A, Ctrl+C, lalu tempel ke
+AI mana saja (ChatGPT / Claude / Gemini) bersama prompt di:
+
+    tools\ai_prompt.txt
+
+Simpan jawabannya sebagai transaksi.csv, lalu lanjut LANGKAH 2.
+
+Cara ini paling tahan banting: AI yang baca layoutnya, tool yang
+hitung dan gambar grafiknya. Cocok juga kalau kamu cuma punya
+screenshot dan malas OCR.
+
+Opsi lain kalau layoutnya agak beda:
+
+    --mode struk        paksa baca sebagai 1 bukti transfer
+    --mode statement    paksa baca sebagai rekening koran
+    --pola first        ambil angka pertama di baris (debit)
+    --pola last         ambil angka terakhir (saldo)
+    --gaya mdy          kalau tanggalnya format Amerika (mm/dd)
+
+
+------------------------------------------------------------
+4. NGATUR KATEGORI
+------------------------------------------------------------
+Buka config\kategori.txt. Formatnya:
+
+    kata kunci | Kategori | jenis
+
+    jenis = belanja  -> dihitung pengeluaran
+            pindah   -> top up, tarik tunai, transfer ke diri sendiri
+            masuk    -> gaji, transfer masuk, refund
+
+Contoh:
+    indomaret|Groceries|belanja
+    tarik tunai|Cash Withdrawal|pindah
+    gaji|Gaji|masuk
+
+PENTING: tambahkan namamu sendiri supaya transfer ke diri sendiri
+tidak dihitung belanja. Contoh:
+
+    budi santoso|Own Account|pindah
+
+Setelah mengubah, jalankan ulang 2_analisa.py. Tool ini akan
+menampilkan daftar transaksi yang belum ada kategorinya supaya
+kamu tahu apa yang perlu ditambah.
+
+
+------------------------------------------------------------
+5. SHOPEE
+------------------------------------------------------------
+Folder shopee\ berisi userscript untuk menarik daftar order:
+
+  1_shopee_popup_v2.2.txt  - buka tiap order satu-satu (detail
+                             lengkap, lebih lambat)
+  2_shopee_daftar_v3.txt   - baca halaman daftar sekaligus
+                             (cepat, 200+ order sekali jalan)
+
+Cara pasang ada di shopee\CARA PASANG.txt
+Cara pakai + batasannya ada di shopee\CARA PAKAI.txt
+
+Hasil export CSV dari script itu bisa langsung dipakai di:
+
+    python tools\3_rekonsiliasi.py transaksi.csv hasil_shopee.csv
+
+
+------------------------------------------------------------
+6. HASIL UJI (biar kamu tahu batasnya)
+------------------------------------------------------------
+Diuji pada 97 screenshot struk DG asli:
+
+  - 83 transaksi sebenarnya
+  - 81 berhasil dibaca   (97,6%)
+  - 0 angka salah
+  - 2 file gagal (nominal tidak terbaca OCR) -> ditandai di layar
+
+Yang gagal selalu diberitahu namanya, jadi kamu bisa isi manual.
+Tool ini TIDAK menebak: kalau ragu, dia mengosongkan.
+
+Kalau ada yang aneh, cek dulu transaksi.csv - itu sumber
+kebenarannya. Semua angka di laporan berasal dari situ.
+
+
+------------------------------------------------------------
+7. ISI FOLDER
+------------------------------------------------------------
+BACA DULU.txt            file ini
+AGENTS.md                instruksi kalau kamu minta AI yang jalankan
+AUDIT.md                 hasil audit keamanan toolkit ini
+config\kategori.txt      aturan kategori (boleh diedit)
+tools\common.py          fungsi bersama (format CSV, angka, tanggal)
+tools\1_ekstrak.py       PDF / gambar -> transaksi.csv
+tools\2_analisa.py       transaksi.csv -> laporan.html + tracker.xlsx
+tools\3_rekonsiliasi.py  cocokkan top up e-wallet dengan belanja
+tools\ai_prompt.txt      prompt untuk AI (kalau layout tidak dikenal)
+shopee\                  userscript Shopee + cara pasang
+contoh\                  contoh PDF statement untuk latihan
+
+
+------------------------------------------------------------
+8. FORMAT CSV (kalau mau bikin sendiri)
+------------------------------------------------------------
+tanggal;waktu;jenis;keterangan;nominal;ref;sumber
+
+2026-05-23;11:01;Top Up E-Wallet;Top Up ShopeePay;202500;SHP83339705N;DG
+2026-05-24;12:37;QRIS;ARKYS SMASH CHICKEN;19000;MB1779597443DT5;DG
+
+- tanggal  : YYYY-MM-DD
+- waktu    : HH:MM, boleh kosong
+- nominal  : angka saja, tanpa Rp dan tanpa titik
+- jenis    : MASUK kalau uang masuk
+
+Selama 7 kolom ini ada, semua tool jalan.
