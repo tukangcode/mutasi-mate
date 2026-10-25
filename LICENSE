@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party notice
-
-shopee/1_shopee_popup_v2.2.txt and shopee/2_shopee_daftar_v3.txt derive from
-the "Shopee Financial Tracker" userscript by Ryu-Sena (IndoTech Community),
-published under the MIT License. Original copyright notice is retained in the
-userscript headers.

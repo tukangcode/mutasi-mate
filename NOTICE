@@ -1,0 +1,21 @@
+# Third-party notice
+
+`shopee/1_shopee_popup_v2.2.txt` and `shopee/2_shopee_daftar_v3.txt` derive from
+the **Shopee Financial Tracker** userscript by **Ryu-Sena** (IndoTech Community),
+originally published on Greasyfork under the MIT License.
+
+The original copyright notice is retained in the userscript metadata headers.
+
+Substantial modifications in this repository:
+
+- repaired dead CSS-module selectors (7 of 8 had rotated away)
+- replaced the fixed 5-second sleep with content polling (30s → ~1s per order)
+- replaced the popup-per-order loop with a same-origin iframe, because popup
+  blockers kill `window.open` after the first `await`
+- added `localStorage` caching with version stamping to prevent stale-data
+  poisoning
+- removed the upstream `@updateURL` / `@downloadURL` so Tampermonkey cannot
+  silently replace the patched script
+- removed the unused `GM_xmlhttpRequest` grant (least privilege)
+
+Everything else in this repository is original work under the MIT License.

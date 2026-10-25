@@ -239,7 +239,7 @@ Panduan lengkap: `BACA DULU.txt` dan `shopee/CARA PAKAI.txt`.
 The Shopee userscripts derive from an MIT-licensed script by **Ryu-Sena**
 (IndoTech Community), originally published on Greasyfork. Substantially
 modified here: selector repair, timing fixes, iframe fallback, and the
-localStorage cache with version stamping.
+localStorage cache with version stamping. Details in [NOTICE](NOTICE).
 
 ## License
 
